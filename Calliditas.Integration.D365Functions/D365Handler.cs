@@ -59,6 +59,12 @@ namespace Calliditas.Integration.D365Functions
                         receiptAddress = Environment.GetEnvironmentVariable("BnPReceiptAddress");
                         receiptName = "BnP";
                         break;
+                    case "jp_":
+                        skip = false;
+                        getSender = SftpHandler.GetForJPMorganProd;
+                        receiptAddress = Environment.GetEnvironmentVariable("JPMorganReceiptAddress");
+                        receiptName = "JPMorgan";
+                        break;
                     default:
                         skip = false;
                         getSender = SftpHandler.GetForDnB;
@@ -174,7 +180,7 @@ namespace Calliditas.Integration.D365Functions
                             Subject = subject
                         };
 
-                        await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody() { Message = receiptMessage, SaveToSentItems = false});
+                        await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody() { Message = receiptMessage, SaveToSentItems = false });
                     }
                     catch (Exception ex)
                     {
@@ -209,7 +215,7 @@ namespace Calliditas.Integration.D365Functions
                             receiptMessage.Attachments.Add(attachment);
                         }
 
-                        await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody(){Message = receiptMessage, SaveToSentItems = false});
+                        await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody() { Message = receiptMessage, SaveToSentItems = false });
                     }
                     finally
                     {
@@ -287,7 +293,7 @@ namespace Calliditas.Integration.D365Functions
                         var mem = new MemoryStream(sftpBytes.Take(read).ToArray(), 0, read);
                         mem.Seek(0, SeekOrigin.Begin);
                         var receipt = "Okänd";
-                        using (var xmlReader = XmlReader.Create(mem, new XmlReaderSettings() {Async = true}))
+                        using (var xmlReader = XmlReader.Create(mem, new XmlReaderSettings() { Async = true }))
                         {
                             while (await xmlReader.ReadAsync())
                             {
@@ -295,7 +301,7 @@ namespace Calliditas.Integration.D365Functions
                                 {
                                     receipt = await xmlReader.ReadElementContentAsStringAsync();
                                 }
-                            }   
+                            }
                         }
 
                         subject = $"Receipt received from DnB for {receipt}";
@@ -327,7 +333,7 @@ namespace Calliditas.Integration.D365Functions
                     attachment.Name = sFile.Name;
                     receiptMessage.Attachments.Add(attachment);
 
-                    await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody(){Message = receiptMessage, SaveToSentItems = false});
+                    await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody() { Message = receiptMessage, SaveToSentItems = false });
 
                 }
 

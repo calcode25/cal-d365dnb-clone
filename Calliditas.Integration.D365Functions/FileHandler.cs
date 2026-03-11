@@ -85,6 +85,115 @@ namespace Calliditas.Integration.D365Functions
         }
     }
 
+    public class JPMorganSftpHandler : SftpHandler
+    {
+        public static string JPMorganPgPEncryptionKeyName = Environment.GetEnvironmentVariable("JPMorganPgPEncryptionKeyName");
+        public static string JPMorganPgPSignatureKeyName = Environment.GetEnvironmentVariable("JPMorganPgPSignatureKeyName");
+        public static string JPMorganPgPSignatureKeyPassword = Environment.GetEnvironmentVariable("JPMorganPgPSignatureKeyPassword");
+        public static string JPMorganPgpEncryptionPubKeyPath => Path.Combine(D365Handler.BasePath, JPMorganPgPEncryptionKeyName);
+        public static string JPMorganCounterFile = Environment.GetEnvironmentVariable("JPMorganCounterFile");
+        public static string JPMorganPgpSignatureKeyPath => Path.Combine(D365Handler.BasePath, JPMorganPgPSignatureKeyName);
+
+        public JPMorganSftpHandler(string username, string keyFile, string host, int port) : base(username, keyFile, host, port)
+        {
+        }
+
+        public override string GetName(string attachmentName)
+        {
+            var counter = IncreaseAndGetCounter();
+            var formattedNumber = counter.ToString().PadLeft(2, '0');
+
+            var builder = new StringBuilder();
+            builder.Append("SFPP3");
+            if (attachmentName.Contains("EUR", StringComparison.OrdinalIgnoreCase))
+            {
+                builder.Append("0X4");
+            }
+            else
+            {
+                builder.Append("0WQ");
+            }
+
+            builder.Append("0.");
+            var prefix = builder.ToString();
+
+            return prefix + DateTime.Now.ToString("yyyyMMdd") + formattedNumber + ".pgp";
+        }
+
+        public static int IncreaseAndGetCounter()
+        {
+            var counterFilePath = Path.Combine(D365Handler.BasePath, JPMorganCounterFile);
+            string date;
+            int counter;
+
+            if (File.Exists(counterFilePath))
+            {
+                var fileContent = File.ReadAllText(counterFilePath);
+                string[] values = fileContent.Split(',');
+                date = values[0];
+                counter = int.Parse(values[1]);
+
+                if (date.Equals(DateTime.Now.ToString("yyyyMMdd")))
+                {
+                    counter++;
+                }
+                else
+                {
+                    date = DateTime.Now.ToString("yyyyMMdd");
+                    counter = 1;
+                }
+            }
+            else
+            {
+                date = DateTime.Now.ToString("yyyyMMdd");
+                counter = 1;
+            }
+
+            string content = $"{date},{counter}";
+            File.WriteAllText(counterFilePath, content);
+            return counter;
+        }
+
+        public override string GetPath()
+        {
+            return "upload";
+        }
+
+        public override async Task<byte[]> ProcessFile(byte[] bytes, string inputFileName, string outputFileName)
+        {
+            var pgp = await LoadJpMorganPgpEncryption();
+
+            using (MemoryStream outputStream = new MemoryStream())
+            {
+                var importPath = Path.Combine(D365Handler.BasePath, inputFileName);
+                var exportPath = Path.Combine(D365Handler.BasePath, outputFileName);
+                await File.WriteAllBytesAsync(importPath, bytes);
+                var importInfo = new FileInfo(importPath);
+                var exportInfo = new FileInfo(exportPath);
+                await pgp.EncryptFileAndSignAsync(importInfo, exportInfo);
+
+                var outputBytes = await File.ReadAllBytesAsync(exportPath);
+
+                File.Delete(importPath);
+                File.Delete(exportPath);
+                return outputBytes;
+            }
+        }
+
+        public static async Task<PGP> LoadJpMorganPgpEncryption()
+        {
+            var pubKeyFile = JPMorganPgpEncryptionPubKeyPath;
+            var signatureKeyFile = JPMorganPgpSignatureKeyPath;
+
+            var pgp = new PGP(new EncryptionKeys(
+                await File.ReadAllTextAsync(pubKeyFile),
+                await File.ReadAllTextAsync(signatureKeyFile), JPMorganPgPSignatureKeyPassword));
+            return pgp;
+        }
+
+        public static PGP Pgp { get; set; }
+
+    }
     public class BnpSftpHandler : SftpHandler
     {
         public static string PgPEncryptionKeyName = Environment.GetEnvironmentVariable("PgPEncryptionKeyName");
@@ -142,7 +251,7 @@ namespace Calliditas.Integration.D365Functions
                     date = DateTime.Now.ToString("yyyyMMdd");
                     counter = 1;
                 }
-            }                          
+            }
             else
             {
                 date = DateTime.Now.ToString("yyyyMMdd");
@@ -199,7 +308,7 @@ namespace Calliditas.Integration.D365Functions
 
         public DnbSftpHandler(string userName, string keyFileName, string host, int port) : base(userName, keyFileName, host, port)
         {
-            
+
         }
 
         public override string GetName(string attachmentName)
@@ -243,6 +352,16 @@ namespace Calliditas.Integration.D365Functions
                 Environment.GetEnvironmentVariable("fgw.dnb.no"), Int32.Parse(Environment.GetEnvironmentVariable("DnbPort")));
         }
 
+        public static SftpHandler GetForJPMorganTest()
+        {
+            return new JPMorganSftpHandler(Environment.GetEnvironmentVariable("JPMorganTestUsername"), Environment.GetEnvironmentVariable("JPMorganTestKeyFile"),
+                Environment.GetEnvironmentVariable("JPMorganTestHost"), Int32.Parse(Environment.GetEnvironmentVariable("JPMorganPort")));
+        }
+        public static SftpHandler GetForJPMorganProd()
+        {
+            return new JPMorganSftpHandler(Environment.GetEnvironmentVariable("JPMorganProdUsername"), Environment.GetEnvironmentVariable("JPMorganProdKeyFile"),
+                Environment.GetEnvironmentVariable("JPMorganProdHost"), Int32.Parse(Environment.GetEnvironmentVariable("JPMorganPort")));
+        }
         public string SftpHost { get; }
         public string SftpUser { get; }
         public string KeyFileResourceName { get; }
