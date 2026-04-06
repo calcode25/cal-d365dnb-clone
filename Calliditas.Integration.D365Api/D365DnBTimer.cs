@@ -147,4 +147,40 @@ public class D365DnBTimer
             return new List<string>() { ex.ToString() };
         }
     }
+
+    [FunctionName("D365JPMorganHttp")]
+    public async Task<IActionResult> RunJPMorganHttp(
+       [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = "CallD365JPMorgan")]
+        HttpRequest req,
+       ILogger log)
+    {
+        var handler = new D365Handler();
+        handler.ReceiptAddress = ReceiptMail;
+
+        await handler.HandleD365JPMorganMail();
+
+        return new JsonResult(new { Result = "OK", Success = handler.Success, Errors = handler.Errors });
+    }
+
+    [FunctionName("GetJPMorganSftpList")]
+    public async Task<List<string>> RunHttpCheckJPMorganSftpList(
+        [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = "CheckJPMorganSftpList")]
+        HttpRequest req,
+        ILogger log)
+    {
+        try
+        {
+            var folderPath = Environment.GetEnvironmentVariable("JPMorganOutputFolder");
+            var client = SftpHandler.GetForJPMorganProd();
+            client.Connect();
+            var paths = await client.GetItems("/");
+            var paths2 = await client.GetItems(folderPath);
+            return paths.Concat(paths2).ToList();
+
+        }
+        catch (Exception ex)
+        {
+            return new List<string>() { ex.ToString() };
+        }
+    }
 }

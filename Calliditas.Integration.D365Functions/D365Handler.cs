@@ -20,6 +20,8 @@ namespace Calliditas.Integration.D365Functions
             BasePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty;
         }
 
+        
+
         public D365Handler()
         {
             Errors = new List<Exception>();
@@ -27,6 +29,186 @@ namespace Calliditas.Integration.D365Functions
             ReceiptAddress = Environment.GetEnvironmentVariable("ResponseEmailAddress");
         }
 
+        public async Task HandleD365JPMorganMail()
+        {
+            if (string.IsNullOrWhiteSpace(ReceiptAddress))
+            {
+                ReceiptAddress = "finance@calliditas.com";
+            }
+
+            var list = new List<Message>();
+            var graph = await GetMessages(list);
+
+            foreach (var message in list)
+            {
+                string receiptAddress = Environment.GetEnvironmentVariable("JPMorganReceiptAddress");
+                string receiptName = "JPMorgan";
+                var matchPart = Regex.Match(message.Subject, "^.+?_").Value.Trim().ToLower();
+
+                Func<FileHandler> getSender = SftpHandler.GetForJPMorganProd;
+                bool skip = true;
+                if(matchPart == "jp_")
+                {
+                        skip = false;
+                }
+                if (skip)
+                {
+                    continue;
+                }
+
+                using (var client = getSender())
+                {
+                    try
+                    {
+                        var sender = message.From?.EmailAddress?.Address?.ToLower() ?? string.Empty;
+                        if (sender.Equals(Environment.GetEnvironmentVariable("CalliditasDynamics365Address")) == false && sender.Contains("@itm8.com") == false)
+                        {
+                            throw new ArgumentException($"Mail från felaktig avsändare: {sender}");
+                        }
+
+                        var files = new List<Tuple<string, string, byte[]>>();
+
+                        foreach (var attachment in message.Attachments.OfType<FileAttachment>())
+                        {
+                            var contentBytes = attachment.ContentBytes;
+                            var extension = Path.GetExtension(attachment.Name)?.ToLower() ?? string.Empty;
+                            if (extension.EndsWith("zip"))
+                            {
+                                var zipStream = new MemoryStream(contentBytes);
+                                var file = new ZipArchive(zipStream);
+                                var entries = file.Entries;
+                                foreach (var entry in entries)
+                                {
+                                    byte[] bytes;
+                                    await using (var stream = entry.Open())
+                                    {
+                                        var l = entry.Length;
+                                        bytes = new byte[l];
+                                        _ = stream.Read(bytes);
+                                    }
+
+                                    files.Add(new Tuple<string, string, byte[]>(entry.Name, attachment.Name, bytes));
+                                }
+                            }
+                            else if (extension.EndsWith("xml") || extension.EndsWith("xct"))
+                            {
+                                files.Add(new Tuple<string, string, byte[]>(attachment.Name, attachment.Name, contentBytes));
+                            }
+                        }
+
+                        var id = "okänd";
+                        string sum = string.Empty;
+                        client.Connect();
+                        if (files.Any())
+                        {
+                            foreach (var file in files)
+                            {
+                                var extension = Path.GetExtension(file.Item1)?.ToLower() ?? string.Empty;
+                                if (extension.EndsWith("xml") || extension.EndsWith("xct"))
+                                {
+                                    var memStream = new MemoryStream(file.Item3);
+                                    memStream.Position = 0;
+
+                                    try
+                                    {
+                                        var xmlReader = XmlReader.Create(memStream,
+                                            new XmlReaderSettings() { Async = true });
+                                        xmlReader.ReadToFollowing("MsgId");
+                                        id = await xmlReader.ReadElementContentAsStringAsync();
+                                        xmlReader.ReadToFollowing("CtrlSum");
+                                        sum = await xmlReader.ReadElementContentAsStringAsync();
+                                    }
+                                    catch
+                                    {
+                                        // Ignore
+                                    }
+
+                                    memStream.Position = 0;
+
+                                    string fileName = client.GetName(file.Item1);
+
+                                    var bytes = await client.ProcessFile(memStream.ToArray(), file.Item1, fileName);
+                                    var uploadStream = new MemoryStream(bytes);
+
+                                    string path = client.GetPath();
+                                    var fullPath = Path.Combine(path, fileName).Replace("\\", "/").TrimStart('/');
+                                    await client.UploadFile(uploadStream, $"/{fullPath}", true);
+                                    Success.Add(fullPath);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            throw new ArgumentOutOfRangeException("Inga filer finns att skicka i mailet");
+                        }
+
+                        var subject = $"Receipt of transfer - {id} - {sum} - {DateTime.Now} to {receiptName}";
+                        var receiptMessage = new Message()
+                        {
+                            ToRecipients = new[]
+                            {
+                                new Recipient()
+                                    { EmailAddress = new EmailAddress() { Address = receiptAddress } },
+                            }.ToList(),
+                            Body = new ItemBody()
+                            {
+                                Content =
+                                    $"Transfer to {receiptName} for {message.Subject}, sent {message.SentDateTime:yyyy-MM-dd HH:mm:ss}.\r\nTransfer to {receiptName} completed {DateTime.Now.ToUniversalTime():yyyy-MM-dd HH:mm:ss}."
+                            },
+                            Subject = subject
+                        };
+
+                        await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody() { Message = receiptMessage, SaveToSentItems = false });
+                    }
+                    catch (Exception ex)
+                    {
+                        Errors.Add(ex);
+                        try
+                        {
+                            await graph.Me.Messages[message.Id].DeleteAsync();
+                        }
+                        catch (Exception)
+                        {
+                            // Ignored
+                        }
+
+                        var receiptMessage = new Message()
+                        {
+                            ToRecipients = new[]
+                            {
+                                new Recipient()
+                                    { EmailAddress = new EmailAddress() { Address = receiptAddress } },
+                            }.ToList(),
+                            Body = new ItemBody()
+                            {
+                                Content =
+                                    $"Transfer to {receiptName} for {message.Subject}, sent {message.SentDateTime:yyyy-MM-dd HH:mm:ss}.\r\nTransfer to {receiptName} failed {DateTime.Now.ToUniversalTime():yyyy-MM-dd HH:mm:ss}.\r\n\r\nFile needs to be handled manually\r\n\r\n{ex.Message}\r\n{ex.StackTrace}\r\n{ex}"
+                            },
+                            Attachments = new List<Attachment>(),
+                            Subject = $"Failure of transfer to {receiptName}"
+                        };
+
+                        foreach (var attachment in message.Attachments)
+                        {
+                            receiptMessage.Attachments.Add(attachment);
+                        }
+
+                        await graph.Me.SendMail.PostAsync(new SendMailPostRequestBody() { Message = receiptMessage, SaveToSentItems = false });
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            await graph.Me.Messages[message.Id].DeleteAsync();
+                        }
+                        catch (Exception)
+                        {
+                            // Ignored
+                        }
+                    }
+                }
+            }
+        }
         public async Task HandleD365Mail()
         {
             if (string.IsNullOrWhiteSpace(ReceiptAddress))
