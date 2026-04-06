@@ -156,7 +156,9 @@ namespace Calliditas.Integration.D365Functions
 
         public override string GetPath()
         {
-            return "upload";
+            string path = "";
+            path = Environment.GetEnvironmentVariable("JPMorganOutputFolder");
+            return path;
         }
 
         public override async Task<byte[]> ProcessFile(byte[] bytes, string inputFileName, string outputFileName)
