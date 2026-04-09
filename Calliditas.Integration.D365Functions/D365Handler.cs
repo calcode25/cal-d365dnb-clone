@@ -150,6 +150,8 @@ namespace Calliditas.Integration.D365Functions
                                     memStream.Position = 0;
 
                                     string fileName = "";
+
+                                    //Added code for JPMorgan to assign file name instead of attachment name
                                     if (matchPart=="jp_")
                                     {
                                         fileName = client.GetName(file.Item1);
