@@ -356,6 +356,7 @@ namespace Calliditas.Integration.D365Functions
 
         public static SftpHandler GetForJPMorganTest()
         {
+            //Added parameters for JP MOrgan connectivity
             return new JPMorganSftpHandler(Environment.GetEnvironmentVariable("JPMorganTestUsername"), Environment.GetEnvironmentVariable("JPMorganTestKeyFile"),
                 Environment.GetEnvironmentVariable("JPMorganTestHost"), Int32.Parse(Environment.GetEnvironmentVariable("JPMorganPort")));
         }
