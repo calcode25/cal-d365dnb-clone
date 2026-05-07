@@ -44,13 +44,22 @@ https://cald365dnbeuwesaprod.file.core.windows.net
 cald365dnbeuwesaprod
 23. StorageSharedKeyCredentialAccountKey - Azure Storage account key
 2x2bCNm0OJLwZspCl6PXr+5V+RYdfqJoziWSIbP8AKn5AIxlT342CBTA8w0nKKxOVnYuy7G+qaBnm4OR+LyhZg==
-24. JPMorganReceiptAddress - Receipt address for JP Morgan
-25. JPMorganTestUsername - JP Morgan test SFTP username
-26. JPMorganTestKeyFile - JP Morgan test SFTP key file
-27. JPMorganTestHost - JP Morgan test SFTP host
-28. JPMorganPort - JP Morgan SFTP port number
-29. JPMorganProdUsername - JP Morgan prod SFTP username
-30. JPMorganProdKeyFile - JP Morgan prod SFTP key file
-31. JPMorganProdHost - JP Morgan prod SFTP host
-32. JPMorganOutputFolder - Jp Morgan output folder
+24. JPMorganReceiptAddress 
+finance.fr@calliditas.com
+25. JPMorganTestUsername
+ftse80769
+26. JPMorganTestKeyFile 
+Calliditas.Integration.D365Functions.id_rsa.ssh
+27. JPMorganTestHost
+ftscatb.mfts.jpmchase.com
+28. JPMorganPort
+22
+29. JPMorganProdUsername
+ftse80769
+30. JPMorganProdKeyFile
+Calliditas.Integration.D365Functions.Calliditas_Production_SSHKey_SECRET
+31. JPMorganProdHost
+fts1.mfts.jpmchase.com
+32. JPMorganOutputFolder
+H2H01
 

@@ -151,7 +151,7 @@ namespace Calliditas.Integration.D365Functions
 
                                     string fileName = "";
 
-                                    //Added code for JPMorgan to assign file name instead of attachment name
+                                    //Added code for JPMorgan to assign file name instead of attachment name 4_15
                                     if (matchPart=="jp_")
                                     {
                                         fileName = client.GetName(file.Item1);
