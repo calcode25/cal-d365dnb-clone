@@ -1,9 +1,3 @@
-# https://ebg-uat2.operations.dynamics.com/?cmp=EBG\&mi=VendParameters
-
-# cal-d365dnb-euwe-rg-prod
-
-## Environment Variables Summary
-
 1. APPSETTING\_D365AutomationAddress - Automation email address for D365, denna misstänker jag ligger i Dynamics365
 automation365@calliditas.com
 2. APPSETTING\_D365ReceiptAddress - Receipt email address for D365 – finance mejlen
