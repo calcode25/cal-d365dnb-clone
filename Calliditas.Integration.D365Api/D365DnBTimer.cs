@@ -88,6 +88,26 @@ public class D365DnBTimer
         return new JsonResult(value);
     }
 
+    [FunctionName("CheckJPMorganVariables")]
+    public JsonResult CheckJPMorganVariables(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "CheckJPMorganVariables")]
+        HttpRequest req, ILogger log)
+    {
+        var value = new
+        {
+            Counter = JPMorganSftpHandler.IncreaseAndGetCounter(),
+            EmailAddress,
+            ReceiptMail,
+            TimerActive,
+            JPMorganPublicKeyExists = System.IO.File.Exists(JPMorganSftpHandler.JPMorganPgpEncryptionPubKeyPath),
+            JPMorganPrivateKeyExists = System.IO.File.Exists(JPMorganSftpHandler.JPMorganPgpSignatureKeyPath),
+            JPMorganEncryptionKeyPath = JPMorganSftpHandler.JPMorganPgpEncryptionPubKeyPath,
+            JPMorganSignatureKeyPath = JPMorganSftpHandler.JPMorganPgpSignatureKeyPath
+        };
+
+        return new JsonResult(value);
+    }
+
     [FunctionName("D365DnBTimer")]
     public async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo myTimer, ILogger log)
     {
