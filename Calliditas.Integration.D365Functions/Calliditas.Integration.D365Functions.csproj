@@ -14,11 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Calliditas_Production_SSHKey_SECRET.ppk" />
-    <EmbeddedResource Include="id_rsa.ssh" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.12.1" />
     <PackageReference Include="Azure.Storage.Files.Shares" Version="12.20.1" />
     <PackageReference Include="Microsoft.Graph" Version="5.60.0" />

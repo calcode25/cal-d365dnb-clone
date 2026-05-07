@@ -61,7 +61,7 @@ namespace Calliditas.Integration.D365Functions
                         receiptAddress = Environment.GetEnvironmentVariable("BnPReceiptAddress");
                         receiptName = "BnP";
                         break;
-                    case "jp_":
+                    case "jpm_":
                         skip = false;
                         getSender = SftpHandler.GetForJPMorganProd;
                         receiptAddress = Environment.GetEnvironmentVariable("JPMorganReceiptAddress");
@@ -152,7 +152,7 @@ namespace Calliditas.Integration.D365Functions
                                     string fileName = "";
 
                                     //Added code for JPMorgan to assign file name instead of attachment name 4_15
-                                    if (matchPart=="jp_")
+                                    if (matchPart=="jpm_")
                                     {
                                         fileName = client.GetName(file.Item1);
                                     }
